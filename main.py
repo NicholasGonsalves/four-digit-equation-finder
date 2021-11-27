@@ -4,22 +4,30 @@ from typing import Dict, Optional, List
 import logging
 from itertools import product
 from progressbar import progressbar, streams
-from math import factorial, sqrt
+from math import factorial, sqrt  # imports are required although they appear 'unused', as they are called within eval()
 
 
 class EquationGenerator:
     def __init__(self, num_digits: int):
         self.num_digits = num_digits
         self.allowed_operators = [
-            '+', '-', '*', '/', '%', '!+', '!-', '!*', '!/', '**(1/2)+', '**(1/2)-', '**(1/2)*', '**(1/2)/'
+            '+', '-', '*', '/', '%',
+            '!+', '!-', '!*', '!/', '!%',
+            '**(1/2)+', '**(1/2)-', '**(1/2)*', '**(1/2)/', '**(1/2)%'
         ]
         self.operator_permutations = list(product(self.allowed_operators, repeat=num_digits - 1))
-        self.solutions: Dict[int, str] = dict()
+        self.solutions: Dict[int, str] = {}
 
         if self.num_digits != 4:
             raise NotImplemented("Woops, it's almost there, but currently we only support 4 digit numbers!")
 
     def __str__(self):
+        """Display possible found solutions"""
+        if len(self.solutions) == 0:
+            raise LookupError(
+                "No solutions could be found. You need to call .calculate_for_all_numbers() to generate them!"
+            )
+
         start_number = 10 ** (self.num_digits - 1)
         end_number = (10 ** self.num_digits)
         solutions_found = len([sol for sol in self.solutions.values() if sol is not None])
@@ -30,23 +38,23 @@ class EquationGenerator:
 
     def calculate_for_all_numbers(self) -> None:
         """Call equation generation function for all self.num_digits length numbers. Add each solution to solutions."""
-
         for number in progressbar(range(10 ** (self.num_digits - 1), (10 ** self.num_digits)), redirect_stdout=True):
             # Generate a valid solution if one exists, and save it in self.solutions
-            solution = self.generate_valid_equation(number)
+            solution = self._generate_valid_equation(number)
             self.solutions[number] = solution
 
-    def generate_valid_equation(self, number: int) -> Optional[str]:
+    def _generate_valid_equation(self, number: int) -> Optional[str]:
         """Generate list of all possible equations for number, and then validate, returning the first valid equation."""
-        possible_equations = self.generate_possible_equations(number)
-        valid_equation = self.validate_equations(possible_equations)
+        possible_equations = self._generate_possible_equations(number)
+        valid_equation = self._validate_equations(possible_equations)
 
         if valid_equation is None:
             logging.info(f"Solution for {number} was not found. Sad times.")
 
         return valid_equation
 
-    def generate_possible_equations(self, number: int) -> List[str]:
+    def _generate_possible_equations(self, number: int) -> List[str]:
+        """For all permutations of operators (that I could think of), generate equations for 'number'. Messy."""
         first, second, third, fourth = list(str(number))
         equals = '=='
 
@@ -54,14 +62,13 @@ class EquationGenerator:
         for operators in self.operator_permutations:
             op1, op2, op3 = operators
 
-            # for each op, replace with '==' once, could do this way more neatly
+            # Original 3, which I then got too lazy to modify with brackets correctly,
+            # and now we're left with the mess below...
             # possible_equations.append(f"{first}{equals}{second}{op2}{third}{op3}{fourth}")
             # possible_equations.append(f"{first}{op1}{second}{equals}{third}{op3}{fourth}")
             # possible_equations.append(f"{first}{op1}{second}{op2}{third}{equals}{fourth}")
 
-            # similarly for brackets this isn't neat........................................
-
-            ###
+            # e.g. a=b+c+d
             possible_equations.append(f"{first}{equals}{second}{op2}{third}{op3}{fourth}")
             possible_equations.append(f"{first}{equals}({second}{op2}{third}){op3}{fourth}")
             possible_equations.append(f"{first}{equals}{second}{op2}({third}{op3}{fourth})")
@@ -71,14 +78,10 @@ class EquationGenerator:
             possible_equations.append(f"{first}{equals}{second}{op2}sqrt({third}{op3}{fourth})")
             possible_equations.append(f"{first}{equals}sqrt({second}{op2}{third}{op3}{fourth})")
 
-            # possible_equations.append(f"factorial({first}){equals}{second}{op2}{third}{op3}{fourth}")
-            # possible_equations.append(f"{first}{equals}factorial({second}{op2}{third}){op3}{fourth}")
-            # possible_equations.append(f"{first}{equals}{second}{op2}factorial({third}{op3}{fourth})")
-
-            ###
+            # e.g. a+b=c+d
             possible_equations.append(f"{first}{op1}{second}{equals}{third}{op3}{fourth}")
 
-            ###
+            # e.g. a+b+c=d
             possible_equations.append(f"{first}{op1}{second}{op2}{third}{equals}{fourth}")
             possible_equations.append(f"({first}{op1}{second}){op2}{third}{equals}{fourth}")
             possible_equations.append(f"{first}{op1}({second}{op2}{third}){equals}{fourth}")
@@ -88,39 +91,22 @@ class EquationGenerator:
             possible_equations.append(f"{first}{op1}sqrt({second}{op2}{third}){equals}{fourth}")
             possible_equations.append(f"sqrt({first}{op1}{second}{op2}{third}){equals}{fourth}")
 
-            # possible_equations.append(f"{first}{op1}{second}{op2}{third}{equals}factorial({fourth})")
-            # possible_equations.append(f"factorial({first}{op1}{second}){op2}{third}{equals}{fourth}")
-            # possible_equations.append(f"{first}{op1}factorial({second}{op2}{third}){equals}{fourth}")
-
-            # ah we need to apply the 'modifiers' sqrt and factorial on either side too, to anything in a bracket also..
-            # very manual and messy above
-
-        # possible_equations = [
-        #     f"{first}{ops[0]}{second}{ops[1]}{third}{ops[2]}{fourth}{ops[3]}"
-        #     for ops in self.operator_permutations
-        # ]
-
         return possible_equations
 
     @staticmethod
-    def validate_equations(equations: List[str]) -> Optional[str]:
-        illegal_operators = ['/0', '%0', '(0+0)!', '(0-0)!', '*0)!']
+    def _validate_equations(equations: List[str]) -> Optional[str]:
         for equation in equations:
-            if any(op in equation for op in illegal_operators):
-                continue
-            if '!' in equation:
-                equation = re.sub(r"(\d)!", r"factorial(\1)", equation)
+
+            equation = re.sub(r"(\d)!", r"factorial(\1)", equation)  # should be somewhere else!
 
             try:
-                valid = eval(equation)
-            except ZeroDivisionError:
+                if eval(equation):
+                    return equation
+            except ZeroDivisionError:  # pff probably just remove this, let Exception handle it amirite.
                 continue
             except Exception as e:
                 logging.info(f"{equation} is ILLEGAL. Big oof. {e}")
                 continue
-
-            if valid:
-                return equation
 
         return None
 
