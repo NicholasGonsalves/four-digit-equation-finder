@@ -21,9 +21,10 @@ class EquationGenerator:
     def __str__(self):
         start_number = 10 ** (self.num_digits - 1)
         end_number = (10 ** self.num_digits)
+        solutions_found = len([sol for sol in self.solutions.values() if sol is not None])
         return (
             f"Generator run for all {self.num_digits} digit numbers: "
-            f"{len(self.solutions)} solutions found of a possible {end_number - start_number}"
+            f"{solutions_found} solutions found of a possible {end_number - start_number}"
         )
 
     def calculate_for_all_numbers(self) -> None:
@@ -69,6 +70,7 @@ class EquationGenerator:
             possible_equations.append(f"sqrt({first}){equals}{second}{op2}{third}{op3}{fourth}")
             possible_equations.append(f"{first}{equals}sqrt({second}{op2}{third}){op3}{fourth}")
             possible_equations.append(f"{first}{equals}{second}{op2}sqrt({third}{op3}{fourth})")
+            possible_equations.append(f"{first}{equals}sqrt({second}{op2}{third}{op3}{fourth})")
 
             # possible_equations.append(f"factorial({first}){equals}{second}{op2}{third}{op3}{fourth}")
             # possible_equations.append(f"{first}{equals}factorial({second}{op2}{third}){op3}{fourth}")
@@ -85,6 +87,7 @@ class EquationGenerator:
             possible_equations.append(f"{first}{op1}{second}{op2}{third}{equals}sqrt({fourth})")
             possible_equations.append(f"sqrt({first}{op1}{second}){op2}{third}{equals}{fourth}")
             possible_equations.append(f"{first}{op1}sqrt({second}{op2}{third}){equals}{fourth}")
+            possible_equations.append(f"sqrt({first}{op1}{second}{op2}{third}){equals}{fourth}")
 
             # possible_equations.append(f"{first}{op1}{second}{op2}{third}{equals}factorial({fourth})")
             # possible_equations.append(f"factorial({first}{op1}{second}){op2}{third}{equals}{fourth}")
@@ -129,4 +132,5 @@ if __name__ == '__main__':
 
     generator = EquationGenerator(num_digits=4)
     generator.calculate_for_all_numbers()
-    print(len([sol for k, sol in generator.solutions.items() if sol is not None]))
+
+    logging.critical(generator)
