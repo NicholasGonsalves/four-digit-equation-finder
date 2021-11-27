@@ -3,6 +3,7 @@ import re
 from typing import Dict, Optional, List
 import logging
 from itertools import product
+from progressbar import progressbar, streams
 from math import factorial, sqrt
 
 
@@ -30,10 +31,8 @@ class EquationGenerator:
     def calculate_for_all_numbers(self) -> None:
         """Call equation generation function for all self.num_digits length numbers. Add each solution to solutions."""
 
-        for number in range(10 ** (self.num_digits - 1), (10 ** self.num_digits)):
+        for number in progressbar(range(10 ** (self.num_digits - 1), (10 ** self.num_digits)), redirect_stdout=True):
             # Generate a valid solution if one exists, and save it in self.solutions
-            if number % 100 == 0:
-                logging.warning(f"Checking {number}")
             solution = self.generate_valid_equation(number)
             self.solutions[number] = solution
 
@@ -127,10 +126,15 @@ class EquationGenerator:
 
 
 if __name__ == '__main__':
-    # logging.basicConfig(level=logging.INFO)
-    logging.basicConfig(level=logging.WARNING)
+    streams.wrap_stderr()  # This is required so logging plays nicely with progressbar
 
+    # logging.basicConfig(level=logging.INFO)
+    # logging.basicConfig(level=logging.WARNING)
+    logging.basicConfig(level=logging.CRITICAL)
+
+    # Init generator and run for all 'num_digit' numbers
     generator = EquationGenerator(num_digits=4)
     generator.calculate_for_all_numbers()
 
+    # Log output
     logging.critical(generator)
