@@ -1,5 +1,6 @@
 # Generate equations for all 4 digit numbers
 import re
+import csv
 from typing import Dict, Optional, List
 import logging
 from itertools import product
@@ -13,10 +14,10 @@ class EquationGenerator:
         self.allowed_operators = [
             '+', '-', '*', '/', '%',
             '!+', '!-', '!*', '!/', '!%',
-            '**(1/2)+', '**(1/2)-', '**(1/2)*', '**(1/2)/', '**(1/2)%'
+            'sqrt_op+', 'sqrt_op-', 'sqrt_op*', 'sqrt_op/', 'sqrt_op%'
         ]
         self.operator_permutations = list(product(self.allowed_operators, repeat=num_digits - 1))
-        self.solutions: Dict[int, str] = {}
+        self.solutions: Dict[str, str] = {}  # key is str representation of the number, for file writing purposes
 
         if self.num_digits != 4:
             raise NotImplemented("Woops, it's almost there, but currently we only support 4 digit numbers!")
@@ -41,7 +42,19 @@ class EquationGenerator:
         for number in progressbar(range(10 ** (self.num_digits - 1), (10 ** self.num_digits)), redirect_stdout=True):
             # Generate a valid solution if one exists, and save it in self.solutions
             solution = self._generate_valid_equation(number)
-            self.solutions[number] = solution
+            self.solutions[str(number)] = solution
+
+    def write_solutions_to_csv(self, file_name: str) -> None:
+        """
+        Writes solutions to csv.
+
+        :param file_name: str: name of file; should probably be a Path.
+        :return: None
+        """
+        with open(file_name, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            for key, value in self.solutions.items():
+                writer.writerow([key, value])
 
     def _generate_valid_equation(self, number: int) -> Optional[str]:
         """Generate list of all possible equations for number, and then validate, returning the first valid equation."""
@@ -81,6 +94,9 @@ class EquationGenerator:
             # e.g. a+b=c+d
             possible_equations.append(f"{first}{op1}{second}{equals}{third}{op3}{fourth}")
 
+            possible_equations.append(f"sqrt({first}{op1}{second}){equals}{third}{op3}{fourth}")
+            possible_equations.append(f"{first}{op1}{second}{equals}sqrt({third}{op3}{fourth})")
+
             # e.g. a+b+c=d
             possible_equations.append(f"{first}{op1}{second}{op2}{third}{equals}{fourth}")
             possible_equations.append(f"({first}{op1}{second}){op2}{third}{equals}{fourth}")
@@ -97,10 +113,11 @@ class EquationGenerator:
     def _validate_equations(equations: List[str]) -> Optional[str]:
         for equation in equations:
 
-            equation = re.sub(r"(\d)!", r"factorial(\1)", equation)  # should be somewhere else!
+            subbed_equation = re.sub(r"(\d)!", r"factorial(\1)", equation)  # should be somewhere else!
+            subbed_equation = re.sub(r"(\d)sqrt_op", r"sqrt(\1)", subbed_equation)  # should be somewhere else!
 
             try:
-                if eval(equation):
+                if eval(subbed_equation):
                     return equation
             except ZeroDivisionError:  # pff probably just remove this, let Exception handle it amirite.
                 continue
@@ -124,3 +141,6 @@ if __name__ == '__main__':
 
     # Log output
     logging.critical(generator)
+
+    # Write solutions to a csv file
+    generator.write_solutions_to_csv(file_name='four_digit_solutions.csv')
